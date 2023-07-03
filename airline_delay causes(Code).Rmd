@@ -1,0 +1,261 @@
+---
+title: "Capstone MA3405"
+author: "Sally Pang Shue Yan"
+date: '2022-09-25'
+output: html_document
+---
+
+# Load Data 
+
+```{r}
+airline_delay <- read.csv("/Users/sallypang/Desktop/airline_delay causes.csv")
+head(airline_delay) # view data
+dim(airline_delay) # display number of observations and variables 
+```
+
+# Data Preparation & Transformation
+
+Prior to processing, it is a crucial stage that frequently entails reformatting data, correcting data, and integrating datasets to enhance data.
+
+## Add a Categorical variables called month name
+
+```{r}
+library(readxl)
+library(dplyr)
+library(kableExtra)
+library(knitr)
+
+month <- 1:12
+month_nm <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", 
+              "Aug", "Sep", "Oct", "Nov","Dec")
+months <- data.frame(month, month_nm)
+flights_raw <- left_join(airline_delay, months, by = "month")
+```
+## Data descriptions
+
+```{r}
+Field <- c("year", "month", "carrier", 
+           "carrier_name", "airport", "airport_name", 
+           "arr_flights", "arr_del15", "carrier_ct", 
+           "weather_ct", "nas_ct", "security_ct", 
+           "late_aircraft_ct", "arr_cancelled", "arr_diverted", 
+           "arr_delay", "carrier_delay", "weather_delay", 
+           "nas_delay", "security_delay", "late_aircraft_delay")
+
+Description <- c("Year (yyyy)", "Month (mm)",   
+                 "Airline carrier abbreviation", "Airline carrier name",    
+                 "Airport Code", "Airport Name", 
+                 "Number of flights which arrived at the airport.", "Number of flights delayed (>= 15minutes late).",  
+                 "Number of flights delayed due to air carrier (e.g. maintenance or crew problems, aircraft cleaning, baggage loading, fueling, etc.).",
+                 "Number of flights delayed due to weather.",  
+                 "Number of flights delayed due to National Aviation System (e.g. non-extreme weather conditions, airport operations, heavy traffic volume, and air traffic control).", 
+                 "Number of flights delayed due to security (e.g. evacuation of a terminal or concourse, re-boarding of aircraft because of security breach, inoperative screening equipment and/or long lines in excess of 29 minutes at screening areas).", 
+                 "Number of flights delayed due to a previous flight using the same aircraft being late.", 
+                 "Number of cancelled flights", "Number of flights diverted", 
+                 "Total time (minutes) of delayed flights.", "Total time (minutes) of delayed flights due to air carrier.",
+                 "Total time (minutes) of delayed flights due to weather.", 
+                 "Total time (minutes) of delayed flights due to National Aviation System.", 
+                 "Total time (minutes) of delayed flights due to security.", 
+                 "Total time (minutes) of delayed flights due to a previous flight using the same aircraft being late.")
+
+VariableType <- c("Qualitative",    "Qualitative",  "Qualitative",  "Qualitative",  
+                  "Qualitative",    "Qualitative",  "Quantitative", "Quantitative", 
+                  "Quantitative",   "Quantitative", "Quantitative", "Quantitative", 
+                  "Quantitative",   "Quantitative", "Quantitative", "Quantitative", 
+                  "Quantitative",   "Quantitative", "Quantitative", "Quantitative", 
+                  "Quantitative") 
+
+VariableMeasure <- c("Explanatory", "Explanatory",  "Explanatory",  "Explanatory",  
+                     "Explanatory", "Explanatory",  "Explanatory",  "Response", 
+                     "Independent", "Independent",  "Independent",  "Independent",  
+                     "Independent", "Explanatory",  "Explanatory",  "Explanatory", 
+                     "Explanatory", "Explanatory",  "Explanatory",  "Explanatory",  
+                     "Explanatory")
+FieldDefinitions <- data.frame(Field, VariableType, VariableMeasure, Description)
+FieldDefinitions %>% kable() %>% kable_styling()
+```
+## Dependent Variable 
+
+```{r}
+FieldDefinitions %>% filter(VariableMeasure == "Response") %>% kable() %>% kable_styling()
+```
+## Independent Variable
+
+```{r}
+FieldDefinitions %>% filter(VariableMeasure == "Independent") %>% kable() %>% kable_styling()
+```
+
+# Objectives 
+
+The purpose of this study is to identify the independent variables that are influencing delayed flights. 
+
+#### Ho: The independent variables do not affect the delayed flights.
+#### Ha: The independent variables does affect the delayed flights.
+
+# Pre-process Data
+
+This process is to put raw data into a comprehensible format. Given that we cannot deal with raw data, it is also a crucial stage in data mining. Prior to using machine learning or data mining methods, the quality of the data should be evaluated.
+
+# Clean Data
+
+```{r}
+airline_delay.new <- na.omit(airline_delay) # remove all rows having NA.
+dim(airline_delay.new) # display number of observations and variables after cleaning process.
+
+library(DataExplorer)
+plot_missing(airline_delay.new)
+```
+
+The plot's results demonstrate that the dataset contains no missing data.
+
+# Split dataset into the Training set and Test set
+
+Divide a dataset into train and test sets to see how effectively our machine learning model works.
+
+```{r}
+library(caTools)
+split <- sample.split(airline_delay.new, SplitRatio = 0.7)  # split data into ratio of 7:2 
+training_set <- subset(airline_delay.new, split == "TRUE")
+test_set <- subset(airline_delay.new, split == "FALSE")
+```
+
+# Scale data 
+
+Scaling the data is one of the pre-processing steps used in machine learning algorithms on the data set, which makes it easier for the model to understand and learn about the problem.
+
+```{r}
+training_set.scale <- scale(training_set[, 8:13])
+test_set.scale <- scale(test_set[, 8:13])
+```
+
+# Exploratory Analysis
+
+This section helps to explore the dataset to understand the dataset before making any assumptions.
+
+## Heatmap of Correlation & Demdrogram 
+
+Heatmap with the Correlation and Dendrogram grouping of the allocation on many key metrics that an analyst uses to identify possible links between variables and comprehend the strength of these associations.
+
+```{r}
+library(heatmaply)
+airline_delay.new.table <- round(cor(airline_delay.new[7:21]), 3)
+dataMatNorm <- as.matrix(normalize(airline_delay.new.table))
+heatmap(dataMatNorm) # whole dataset
+```
+
+The heatmap displays the correlation for each variable included in this dataset.
+
+```{r}
+dataTfTrim <- airline_delay.new %>% select(arr_del15, carrier_ct, weather_ct, nas_ct, security_ct, late_aircraft_ct)
+heatmap(cor(normalize(dataTfTrim))) # narrow down to the 6 variables  
+```
+
+The correlation for the six factors used in this study is shown in the second heatmap.
+According to the intensity of the colors, the graphs clearly reveal that arr_del15 has the lowest correlation with security ct and higher connection with nas_ct, late_aircraft_ct, and carrier_ct. The dendrogram indicates that the variables carrier_ct and late_aircraft_ct are the most comparable, but as security_ct is fused later, it becomes clear that this variable is substantially distinct from the rest of the variables in terms of their relationships to and affectivity on delayed flights.
+
+
+## Bar chart of Flight delays by airport
+
+Amount of delayed flights per airports. 
+
+```{r}
+library(ggplot2)
+library(kableExtra)
+library(scales)
+library(dplyr)
+library(tidyr)
+flights_raw %>% select(carrier, arr_del15) %>% drop_na() %>% group_by(carrier) %>% 
+  dplyr::summarise(TotalFlightsDelay = sum(arr_del15)) %>% 
+  ggplot( aes(x=reorder(carrier, -TotalFlightsDelay), y=TotalFlightsDelay, fill=TotalFlightsDelay))+
+  geom_col() + coord_flip() + scale_y_continuous(labels = comma) + xlab("Airport") +
+  scale_colour_continuous(labels = comma) + theme(legend.position="bottom")
+```
+
+The result shows airport of WN have the most total flight delay.
+
+# Descriptive Analysis
+
+Using historical data, analytical modeling, data mining techniques, and machine learning, predictive analytics is a subset of new insights that forecasts probable outcomes.
+
+## 1. Principal component analyse (PCA)
+
+A type of unsupervised statistical learning is this algorithm. It offers data visualization, dimension reduction techniques, and, most importantly, it offers data pre-processing techniques before applying another methodology.
+
+```{r}
+library(tidyverse)
+library(skimr)
+library(corrplot)
+library(plm)
+library(sandwich)
+library(lmtest)
+library(dplyr)
+library(devtools)
+library(ggbiplot)
+
+apply(is.na(airline_delay), MARGIN=2, FUN = sum)
+apply(is.na(airline_delay), MARGIN = 2, FUN = mean)
+
+airline_delay.new.table <- round(cor(airline_delay.new[8:13]), 3)
+head(airline_delay.new.table)
+
+airline_delay.pca <- prcomp(airline_delay.new[8:13], center = TRUE,scale. = TRUE)
+
+print(airline_delay.pca)
+summary(airline_delay.pca)
+
+ggbiplot(airline_delay.pca, scale=0)
+biplot(airline_delay.pca, scale = 0)
+```
+
+## 2. K-Nearest Neighbors (KNN)
+
+The k-nearest neighbors (KNN) method computes the chance that a data point will belong to one group or another based on which group the data points closest to it do.
+
+```{r}
+library(e1071)
+library(caTools)
+library(class)
+
+
+
+k = sqrt(70592)
+
+classifier_knn <- knn(train = scale(training_set[, 7:14]),
+                      test = scale(test_set[, 7:14]),
+                      cl = training_set$carrier,
+                      k = k)
+
+cm <- table(test_set$carrier, classifier_knn)
+cm
+
+misClassError <- mean(classifier_knn != test_set$carrier)
+print(paste('Accuracy =', 1- misClassError))
+```
+
+## 3. Mutiple Linear Regression
+
+This method is a statistical approach that forecasts the result of a dependent variable using two or more independent variables. Using this method, we may calculate the model's variance as well as the proportional contributions of each independent variable to the overall variance.
+
+```{r}
+plot(airline_delay.new[8:13], col="navy", main="Matrix Scatterplot")
+
+lm.fit =lm(arr_del15~.,data= airline_delay.new[8:13])
+summary(lm.fit)
+
+hist(resid(lm.fit), prob = TRUE)
+```
+
+The 0.01, 0.02 as 1 standard deviation, 2 standard deviation, can see that on the right side, the majority of the data points is within the 2nd deviation. Since the median is nearly zero and the model is somewhat skewed to the left when looking at the min of -0.0202 and 1Q of 0.0000576, the result shows that the residuals produced a symmetrical output. 
+
+# Conclusion
+By examining this result, we can see that the F-statistic gives a significant large value of 2.115e+13 and a p-value of 2.2e-16, which is almost zero. Based on this finding, it is able to reject the null hypothesis while accepting the alternative hypothesis.
+
+### Ho: The independent variables do not affect the delayed flights. (Reject)
+### Ha: The independent variables does affect the delayed flights.
+
+
+
+
+
+
+
